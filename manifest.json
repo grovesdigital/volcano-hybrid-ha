@@ -1,10 +1,10 @@
 {
   "domain": "volcano_hybrid",
   "name": "Volcano Hybrid",
-  "codeowners": ["@your-github-username"],
+  "codeowners": ["@grovesdigital"],
   "config_flow": true,
   "dependencies": ["bluetooth"],
-  "documentation": "https://github.com/your-username/volcano-hybrid-ha",
+  "documentation": "https://github.com/grovesdigital/volcano-hybrid-ha",
   "integration_type": "device",
   "iot_class": "local_polling",
   "requirements": ["bleak>=0.20.0"],

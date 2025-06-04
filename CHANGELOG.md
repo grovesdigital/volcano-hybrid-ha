@@ -48,5 +48,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Documentation and setup guides
 - HACS compatibility
 
-[Unreleased]: https://github.com/yourusername/volcano-hybrid-ha/compare/v1.0.0...HEAD
-[1.0.0]: https://github.com/yourusername/volcano-hybrid-ha/releases/tag/v1.0.0
+[Unreleased]: https://github.com/grovesdigital/volcano-hybrid-ha/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/grovesdigital/volcano-hybrid-ha/releases/tag/v1.0.0

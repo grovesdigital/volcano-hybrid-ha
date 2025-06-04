@@ -16,7 +16,7 @@ Thank you for your interest in contributing to the Volcano Hybrid Home Assistant
 1. Fork the repository on GitHub
 2. Clone your fork locally:
    ```bash
-   git clone https://github.com/yourusername/volcano-hybrid-ha.git
+   git clone https://github.com/grovesdigital/volcano-hybrid-ha.git
    cd volcano-hybrid-ha
    ```
 
