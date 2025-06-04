@@ -1,0 +1,66 @@
+{
+  "config": {
+    "step": {
+      "bluetooth_confirm": {
+        "description": "Do you want to setup the discovered Volcano Hybrid device?"
+      },
+      "user": {
+        "title": "Volcano Hybrid Setup",
+        "description": "Choose how to add your Volcano Hybrid device",
+        "data": {
+          "action": "Setup Method"
+        },
+        "data_description": {
+          "action": "Choose 'Scan for devices' to automatically discover your Volcano or 'Manual entry' to enter MAC address"
+        }
+      },
+      "discovery": {
+        "title": "Volcano Hybrid Discovery",
+        "description": "Select your Volcano Hybrid device from the discovered devices",
+        "data": {
+          "device": "Device"
+        }
+      },
+      "manual": {
+        "title": "Manual Setup",
+        "description": "Enter your Volcano Hybrid device MAC address manually",
+        "data": {
+          "mac_address": "MAC Address"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to the device. Make sure it's powered on and in range.",
+      "invalid_mac_address": "Invalid MAC address format. Use format XX:XX:XX:XX:XX:XX",
+      "not_volcano_device": "This device doesn't appear to be a Volcano Hybrid",
+      "no_devices_found": "No Volcano devices found during scan. Make sure your device is powered on and nearby."
+    },
+    "abort": {
+      "already_configured": "Device is already configured",
+      "cannot_connect": "Unable to connect to device",
+      "not_volcano_device": "Not a Volcano device"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Volcano Hybrid Options",
+        "description": "Configure options for your Volcano Hybrid"
+      }
+    }
+  },
+  "services": {
+    "start_session": {
+      "name": "Start Session",
+      "description": "Start a volcano session with specific parameters"
+    },
+    "temperature_sequence": {
+      "name": "Temperature Sequence", 
+      "description": "Run a sequence of temperatures (flavor chasing)"
+    },
+    "fan_timer": {
+      "name": "Fan Timer",
+      "description": "Turn on fan for a specific duration"
+    }
+  }
+}

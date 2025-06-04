@@ -1,0 +1,76 @@
+volcano_start_session:
+  name: Start Session
+  description: Start a volcano session with specific parameters
+  fields:
+    entity_id:
+      name: Entity ID
+      description: Volcano device to control
+      required: true
+      selector:
+        entity:
+          domain: climate
+    temperature:
+      name: Temperature
+      description: Target temperature in Celsius
+      required: true
+      selector:
+        number:
+          min: 40
+          max: 230
+          unit_of_measurement: "°C"
+    duration:
+      name: Duration
+      description: Session duration in minutes (optional)
+      required: false
+      selector:
+        number:
+          min: 1
+          max: 60
+          unit_of_measurement: "min"
+
+volcano_temperature_sequence:
+  name: Temperature Sequence
+  description: Run a sequence of temperatures (flavor chasing)
+  fields:
+    entity_id:
+      name: Entity ID
+      description: Volcano device to control
+      required: true
+      selector:
+        entity:
+          domain: climate
+    temperatures:
+      name: Temperature Sequence
+      description: List of temperatures to cycle through
+      required: true
+      example: "[185, 190, 195, 200]"
+    interval:
+      name: Interval
+      description: Time between temperature changes (minutes)
+      required: true
+      selector:
+        number:
+          min: 1
+          max: 30
+          unit_of_measurement: "min"
+
+volcano_fan_timer:
+  name: Fan Timer
+  description: Turn on fan for a specific duration
+  fields:
+    entity_id:
+      name: Entity ID
+      description: Volcano device to control
+      required: true
+      selector:
+        entity:
+          domain: fan
+    duration:
+      name: Duration
+      description: Fan runtime in seconds
+      required: true
+      selector:
+        number:
+          min: 5
+          max: 300
+          unit_of_measurement: "s"

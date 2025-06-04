@@ -1,0 +1,51 @@
+{
+  "config": {
+    "step": {
+      "bluetooth": {
+        "description": "Set up your Volcano Hybrid device."
+      },      "user": {
+        "title": "Set up Volcano Hybrid",
+        "description": "Choose how to add your Volcano Hybrid device",
+        "data": {
+          "action": "Setup Method"
+        },
+        "data_description": {
+          "action": "scan: Scan for devices automatically, manual: Enter MAC address manually"
+        }
+      },
+      "discovery": {
+        "title": "Volcano Hybrid Discovery",
+        "description": "Select your Volcano Hybrid device from the list",
+        "data": {
+          "device": "Device"
+        }
+      },
+      "manual": {
+        "title": "Manual Setup",
+        "description": "Enter your device's MAC address manually",
+        "data": {
+          "mac_address": "MAC Address"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to device",
+      "invalid_mac": "Invalid MAC address format",
+      "unknown": "Unexpected error occurred",
+      "no_devices_found": "No Volcano devices found during scan"
+    },
+    "abort": {
+      "already_configured": "Device is already configured",
+      "not_supported": "Device not supported",
+      "cannot_connect": "Cannot connect to device"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Volcano Hybrid Options",
+        "description": "Configure options for your Volcano Hybrid"
+      }
+    }
+  }
+}
