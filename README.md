@@ -191,7 +191,7 @@ logger:
 - **Bluetooth**: Requires BLE support
 - **Device**: Storz & Bickel Volcano Hybrid
 
-## Migration from Original Script
+## Migration from Original Project Onyx Server from ImACoder
 
 If you're currently using the original `volcanoBleServer.py`:
 
