@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.0] - 2025-08-06
+
+### Added
+- **Custom Lovelace Card**: Beautiful interactive volcano card with SVG background
+  - Real-time temperature display (current/target)
+  - Heat and fan toggle buttons with visual status indicators
+  - Temperature preset buttons (185°C, 190°C, 195°C, 200°C, Next Session)
+  - Responsive design for all screen sizes
+  - Configuration UI for easy dashboard setup
+- Complete card installation guide with troubleshooting
+- Enhanced documentation with card usage examples
+
 ## [1.0.1] - 2025-06-08
 
 ### Removed

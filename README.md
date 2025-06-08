@@ -212,3 +212,90 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - Based on the original Volcano BLE server implementation
 - Storz & Bickel for the Volcano Hybrid device
 - Home Assistant community for integration patterns
+
+## Custom Lovelace Card
+
+This integration includes a beautiful custom Lovelace card with an interactive SVG volcano background and intuitive controls.
+
+### Card Installation
+
+#### Automatic Installation (Recommended)
+1. Copy the entire `www/` folder from this repository to your Home Assistant configuration directory:
+   ```
+   config/
+   └── www/
+       ├── volcano-card.js
+       ├── volcano-card-editor.js
+       └── trace.svg
+   ```
+
+2. Add the resource in Home Assistant:
+   - **Via UI**: Go to **Settings** → **Dashboards** → **Resources** → **Add Resource**
+     - URL: `/local/volcano-card.js`
+     - Resource type: **JavaScript module**
+   
+   - **Via YAML**: Add to your `configuration.yaml`:
+     ```yaml
+     lovelace:
+       resources:
+         - url: /local/volcano-card.js
+           type: module
+     ```
+
+3. Restart Home Assistant and refresh your browser cache (Ctrl+F5)
+
+#### Manual Installation
+1. Download the files from the `www/` folder:
+   - `volcano-card.js` (main card)
+   - `volcano-card-editor.js` (configuration UI)
+   - `trace.svg` (volcano background)
+
+2. Place them in your `config/www/` directory
+
+3. Follow step 2-3 from automatic installation above
+
+### Using the Card
+
+Add the card to your dashboard:
+
+```yaml
+type: custom:volcano-card
+entity: climate.volcano_hybrid
+fan_entity: fan.volcano_hybrid_fan
+title: "Volcano Hybrid"
+show_title: true
+compact: false
+```
+
+**Card Configuration Options:**
+- `entity` (required): Your volcano climate entity
+- `fan_entity` (required): Your volcano fan entity  
+- `title`: Card title (default: "Volcano Hybrid")
+- `show_title`: Show/hide title (default: true)
+- `compact`: Compact mode for smaller spaces (default: false)
+
+**Card Features:**
+- Interactive SVG volcano background
+- Real-time temperature display (current/target)
+- Heat and fan toggle buttons with status indicators
+- Temperature preset buttons (185°C, 190°C, 195°C, 200°C, Next)
+- Responsive design that works on all screen sizes
+- Visual feedback for all interactions
+
+### Card Troubleshooting
+
+**"Custom element doesn't exist" error:**
+1. Verify files are in `config/www/` directory
+2. Check resource is registered correctly in Settings → Dashboards → Resources
+3. Clear browser cache (Ctrl+F5) and restart Home Assistant
+4. Check browser console (F12) for JavaScript errors
+
+**Card not updating:**
+1. Ensure entity names match your actual volcano entities
+2. Check entities are available in Developer Tools → States
+3. Verify entities are not "unavailable" or "unknown"
+
+**Layout issues:**
+1. Try toggling compact mode: `compact: true`
+2. Card is designed to be responsive - avoid fixed width containers
+3. Test on different screen sizes for optimal experience

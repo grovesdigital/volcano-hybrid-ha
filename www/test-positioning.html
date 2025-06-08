@@ -1,0 +1,902 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Volcano Card Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f0f0f0;
+        }
+          .volcano-container {
+            position: relative;
+            width: 25rem; /* 400px / 16 = 25rem */
+            height: 25rem; /* 400px / 16 = 25rem */
+            background: white;
+            border-radius: 1.25rem; /* 20px / 16 = 1.25rem */
+            box-shadow: 0 0.25rem 1.25rem rgba(0,0,0,0.1);
+            margin: 1.25rem auto;
+            overflow: hidden;
+        }
+        
+        .volcano-svg {
+            width: 100%;
+            height: 100%;
+        }
+          .temperature-display {
+            position: absolute;
+            /* Remove background, border, padding */
+            font-family: 'Courier New', 'Lucida Console', monospace;
+            font-weight: bold;
+            font-size: 1.75rem; /* 28px / 16 = 1.75rem */
+            cursor: move;
+            user-select: none;
+            /* Digital display styling */
+            text-shadow: 
+                0 0 0.3125rem currentColor,
+                0 0 0.625rem currentColor,
+                0 0 0.9375rem currentColor;
+            letter-spacing: 0.125rem; /* 2px / 16 = 0.125rem */
+        }        .current-temp {
+            top: 31%; /* 124px/400px = 31% */
+            left: 42%; /* 168px/400px = 42% */
+            color: #ff6b35;
+            /* Add glow effect for digital look */
+            filter: drop-shadow(0 0 0.5rem #ff6b35);
+        }
+        
+        .target-temp {
+            top: 41.5%; /* 166px/400px = 41.5% */
+            right: 38.25%; /* 153px/400px = 38.25% */
+            color: #ffffff;
+            /* Add glow effect for digital look */
+            filter: drop-shadow(0 0 0.5rem #ffffff);
+        }
+        
+        /* Digital seven-segment font styling */
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&display=swap');
+          .temperature-display {
+            font-family: 'Orbitron', 'Courier New', monospace;
+            font-weight: 900;
+            font-size: 2rem; /* 32px / 16 = 2rem */
+            /* Enhanced digital effect */
+            background: linear-gradient(90deg, currentColor 0%, transparent 50%, currentColor 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            animation: digitalFlicker 3s infinite;
+        }
+        
+        @keyframes digitalFlicker {
+            0%, 98% { opacity: 1; }
+            99%, 100% { opacity: 0.95; }
+        }          .control-button {
+            position: absolute;
+            background: rgba(255,255,255,0.95);
+            border: none;
+            border-radius: 0.5rem; /* 8px / 16 = 0.5rem */
+            min-width: 3.125rem; /* 50px / 16 = 3.125rem */
+            height: 2.5rem; /* 40px / 16 = 2.5rem */
+            padding: 0.5rem 0.75rem; /* 8px 12px / 16 = 0.5rem 0.75rem */
+            cursor: pointer;
+            box-shadow: 0 0.125rem 0.625rem rgba(0,0,0,0.2);
+            font-size: 0.875rem; /* 14px / 16 = 0.875rem */
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+          .control-button:hover {
+            transform: scale(1.1);
+            box-shadow: 0 0.25rem 0.9375rem rgba(0,0,0,0.3);
+        }
+        
+        .control-button.active {
+            background: #ff6b35;
+            color: white;
+        }        .temp-down {
+            bottom: 7.5%; /* 30px/400px = 7.5% */
+            left: 18.75%; /* 75px/400px = 18.75% */
+            color: #4a90e2;
+            width: 12.5%; /* 50px/400px = 12.5% */
+            height: 12.5%; /* 50px/400px = 12.5% */
+            border-radius: 50%;
+            font-size: 1.25rem; /* 20px / 16 = 1.25rem */
+        }
+        
+        .temp-up {
+            bottom: 7.5%; /* 30px/400px = 7.5% */
+            left: 32.5%; /* 130px/400px = 32.5% */
+            color: #ff6b35;
+            width: 12.5%; /* 50px/400px = 12.5% */
+            height: 12.5%; /* 50px/400px = 12.5% */
+            border-radius: 50%;
+            font-size: 1.25rem; /* 20px / 16 = 1.25rem */
+        }
+        
+        .heat-toggle {
+            bottom: 8.75%; /* 35px/400px = 8.75% */
+            right: 35%; /* 140px/400px = 35% */
+            color: #ff4444;
+            width: 15%; /* 60px/400px = 15% */
+            height: 10%; /* 40px/400px = 10% */
+        }
+        
+        .fan-toggle {
+            bottom: 8.75%; /* 35px/400px = 8.75% */
+            right: 18.75%; /* 75px/400px = 18.75% */
+            color: #44aa44;
+            width: 12.5%; /* 50px/400px = 12.5% */
+            height: 10%; /* 40px/400px = 10% */
+        }
+          .coordinates {
+            position: absolute;
+            bottom: 2.5%; /* 10px/400px = 2.5% */
+            left: 2.5%; /* 10px/400px = 2.5% */
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 0.3125rem 0.625rem; /* 5px 10px / 16 = 0.3125rem 0.625rem */
+            border-radius: 0.3125rem; /* 5px / 16 = 0.3125rem */
+            font-size: 0.75rem; /* 12px / 16 = 0.75rem */
+        }
+          .status-indicator {
+            position: absolute;
+            top: 5%; /* 20px/400px = 5% */
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 0.625rem; /* 10px / 16 = 0.625rem */
+        }
+        
+        .status-dot {
+            width: 0.75rem; /* 12px / 16 = 0.75rem */
+            height: 0.75rem; /* 12px / 16 = 0.75rem */
+            border-radius: 50%;
+            background: #ccc;
+        }
+        
+        .status-dot.heat-on {
+            background: #ff4444;
+            animation: pulse 2s infinite;
+        }
+        
+        .status-dot.fan-on {
+            background: #44aa44;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 0.5; }
+            50% { opacity: 1; }
+        }
+        
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }          .controls-panel {
+            margin: 1.25rem; /* 20px / 16 = 1.25rem */
+            padding: 1.25rem; /* 20px / 16 = 1.25rem */
+            background: white;
+            border-radius: 0.625rem; /* 10px / 16 = 0.625rem */
+            box-shadow: 0 0.125rem 0.625rem rgba(0,0,0,0.1);
+            max-height: 37.5rem; /* 600px / 16 = 37.5rem */
+            overflow-y: auto;
+        }
+        
+        .control-section {
+            margin: 1.25rem 0; /* 20px / 16 = 1.25rem */
+            padding: 0.9375rem; /* 15px / 16 = 0.9375rem */
+            border: 1px solid #eee;
+            border-radius: 0.5rem; /* 8px / 16 = 0.5rem */
+            background: #f9f9f9;
+        }
+        
+        .control-section h4 {
+            margin: 0 0 0.9375rem 0; /* 15px / 16 = 0.9375rem */
+            color: #333;
+            border-bottom: 2px solid #4a90e2;
+            padding-bottom: 0.3125rem; /* 5px / 16 = 0.3125rem */
+        }
+        
+        .control-group {
+            margin: 10px 0;
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        .control-group label {
+            display: inline-block;
+            min-width: 100px;
+            font-weight: bold;
+            font-size: 12px;
+        }
+        
+        input[type="number"] {
+            width: 60px;
+            padding: 5px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        
+        input[type="color"] {
+            width: 40px;
+            height: 30px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        
+        input[type="range"] {
+            width: 100px;
+        }
+        
+        select {
+            padding: 5px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        
+        button {
+            margin: 5px;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            background: #4a90e2;
+            color: white;
+        }
+        
+        button:hover {
+            background: #357abd;
+        }
+    </style>
+</head>
+<body>
+    <h1>Volcano Card Positioning Test</h1>
+    
+    <div class="volcano-container" id="volcanoContainer">
+        <!-- Your trace.svg will be loaded here -->
+        <div class="volcano-svg" id="volcanoSvg">
+            <!-- Replace the placeholder with your actual trace.svg -->
+            <object data="trace.svg" type="image/svg+xml" style="width: 100%; height: 100%; pointer-events: none;"></object>
+        </div>
+        
+        <!-- Temperature Displays - Remove labels and styling -->
+        <div class="temperature-display current-temp" draggable="true">185</div>
+
+        <div class="temperature-display target-temp" draggable="true">190</div>        <!-- Control Buttons -->
+        <button class="control-button temp-down" draggable="true" title="Temperature Down">-</button>
+        <button class="control-button temp-up" draggable="true" title="Temperature Up">+</button>
+        <button class="control-button heat-toggle active" draggable="true" title="Heat On/Off">HEAT</button>
+        <button class="control-button fan-toggle" draggable="true" title="Fan On/Off">FAN</button>
+        
+        <!-- Status Indicators -->
+        <div class="status-indicator">
+            <div class="status-dot heat-on" title="Heat On"></div>
+            <div class="status-dot fan-on" title="Fan On"></div>
+        </div>
+        
+        <!-- Mouse coordinates display -->
+        <div class="coordinates" id="coordinates">X: 0, Y: 0</div>
+    </div>
+      <!-- Control Panel -->
+    <div class="controls-panel">
+        <h3>Volcano Card Customization</h3>
+        
+        <!-- Temperature Display Controls -->
+        <div class="control-section">
+            <h4>🌡️ Temperature Displays</h4>
+              <div class="control-group">
+                <label>Current Temp:</label>
+                <label>Top %:</label> <input type="number" id="currentTop" value="25" min="0" max="100">
+                <label>Left %:</label> <input type="number" id="currentLeft" value="25" min="0" max="100">
+                <label>Font Size:</label> <input type="number" id="currentFontSize" value="32" min="12" max="80">
+                <label>Color:</label> <input type="color" id="currentColor" value="#ff6b35">
+                <button onclick="updatePosition('current-temp')">Update</button>
+            </div>
+            
+            <div class="control-group">
+                <label>Target Temp:</label>
+                <label>Top %:</label> <input type="number" id="targetTop" value="25" min="0" max="100">
+                <label>Right %:</label> <input type="number" id="targetRight" value="25" min="0" max="100">
+                <label>Font Size:</label> <input type="number" id="targetFontSize" value="32" min="12" max="80">  
+                <label>Color:</label> <input type="color" id="targetColor" value="#4a90e2">
+                <button onclick="updatePosition('target-temp')">Update</button>
+            </div>
+        </div>
+        
+        <!-- Button Controls -->
+        <div class="control-section">
+            <h4>🔘 Control Buttons</h4>
+              <div class="control-group">
+                <label>Temp Down:</label>
+                <label>Bottom %:</label> <input type="number" id="tempDownBottom" value="20" min="0" max="100">
+                <label>Left %:</label> <input type="number" id="tempDownLeft" value="20" min="0" max="100">
+                <label>Size %:</label> <input type="number" id="tempDownSize" value="10" min="5" max="20">
+                <label>Color:</label> <input type="color" id="tempDownColor" value="#4a90e2">
+                <button onclick="updatePosition('temp-down')">Update</button>
+            </div>
+            
+            <div class="control-group">
+                <label>Temp Up:</label>
+                <label>Bottom %:</label> <input type="number" id="tempUpBottom" value="20" min="0" max="100">
+                <label>Left %:</label> <input type="number" id="tempUpLeft" value="35" min="0" max="100">
+                <label>Size %:</label> <input type="number" id="tempUpSize" value="10" min="5" max="20">
+                <label>Color:</label> <input type="color" id="tempUpColor" value="#ff6b35">
+                <button onclick="updatePosition('temp-up')">Update</button>
+            </div>
+            
+            <div class="control-group">
+                <label>Heat Toggle:</label>
+                <label>Bottom %:</label> <input type="number" id="heatBottom" value="20" min="0" max="100">
+                <label>Right %:</label> <input type="number" id="heatRight" value="35" min="0" max="100">
+                <label>Width:</label> <input type="number" id="heatWidth" value="60" min="40" max="120">
+                <label>Height:</label> <input type="number" id="heatHeight" value="40" min="20" max="60">
+                <label>Color:</label> <input type="color" id="heatColor" value="#ff4444">
+                <label>Font Size:</label> <input type="number" id="heatFontSize" value="14" min="10" max="20">
+                <button onclick="updatePosition('heat-toggle')">Update</button>
+            </div>
+            
+            <div class="control-group">
+                <label>Fan Toggle:</label>
+                <label>Bottom %:</label> <input type="number" id="fanBottom" value="20" min="0" max="100">
+                <label>Right %:</label> <input type="number" id="fanRight" value="20" min="0" max="100">
+                <label>Width:</label> <input type="number" id="fanWidth" value="50" min="40" max="120">
+                <label>Height:</label> <input type="number" id="fanHeight" value="40" min="20" max="60">
+                <label>Color:</label> <input type="color" id="fanColor" value="#44aa44">
+                <label>Font Size:</label> <input type="number" id="fanFontSize" value="14" min="10" max="20">
+                <button onclick="updatePosition('fan-toggle')">Update</button>
+            </div>
+        </div>
+        
+        <!-- Container & Background -->
+        <div class="control-section">
+            <h4>🏔️ Container & Background</h4>
+            
+            <div class="control-group">
+                <label>Container Width:</label>
+                <input type="number" id="containerWidth" value="400" min="300" max="800">
+                <label>Height:</label>
+                <input type="number" id="containerHeight" value="400" min="300" max="600">
+                <label>Border Radius:</label>
+                <input type="number" id="containerRadius" value="20" min="0" max="50">
+                <button onclick="updateContainer()">Update</button>
+            </div>
+            
+            <div class="control-group">
+                <label>Background:</label>
+                <input type="color" id="containerBg" value="#ffffff">
+                <label>Shadow Blur:</label>
+                <input type="range" id="shadowBlur" min="0" max="30" value="20">
+                <button onclick="updateContainer()">Update</button>
+            </div>
+        </div>
+        
+        <!-- Typography -->
+        <div class="control-section">
+            <h4>📝 Typography</h4>
+            
+            <div class="control-group">
+                <label>Font Family:</label>
+                <select id="fontFamily">
+                    <option value="'Orbitron', monospace" selected>Orbitron (Digital)</option>
+                    <option value="'Courier New', monospace">Courier New</option>
+                    <option value="'Arial', sans-serif">Arial</option>
+                    <option value="'Roboto', sans-serif">Roboto</option>
+                </select>
+                <label>Letter Spacing:</label>
+                <input type="range" id="letterSpacing" min="0" max="5" step="0.5" value="2">
+                <button onclick="updateTypography()">Update</button>
+            </div>
+        </div>
+        
+        <!-- Actions -->
+        <div class="control-section">
+            <h4>⚙️ Actions</h4>
+            
+            <div class="control-group">
+                <button onclick="generateCSS()">Generate CSS</button>
+                <button onclick="loadTraceSVG()">Load trace.svg</button>
+                <button onclick="resetToDefaults()">Reset to Defaults</button>
+                <button onclick="copyCSSToClipboard()">Copy CSS</button>
+            </div>
+        </div>
+        
+        <div id="cssOutput" style="margin-top: 20px; padding: 10px; background: #f5f5f5; border-radius: 5px; display: none;">
+            <h4>Generated CSS:</h4>
+            <pre id="cssCode"></pre>
+        </div>
+    </div>
+
+    <script>
+        // Track mouse position for positioning help
+        const container = document.getElementById('volcanoContainer');
+        const coordinates = document.getElementById('coordinates');
+          container.addEventListener('mousemove', (e) => {
+            const rect = container.getBoundingClientRect();
+            const x = Math.round(e.clientX - rect.left);
+            const y = Math.round(e.clientY - rect.top);
+            const xPercent = Math.round((x / rect.width) * 100);
+            const yPercent = Math.round((y / rect.height) * 100);
+            coordinates.textContent = `X: ${x}px (${xPercent}%), Y: ${y}px (${yPercent}%)`;
+        });
+          // Make all draggable elements draggable
+        let draggedElement = null;
+        
+        document.querySelectorAll('[draggable="true"]').forEach(element => {
+            element.addEventListener('dragstart', (e) => {
+                draggedElement = e.target;
+            });
+        });
+        
+        container.addEventListener('dragover', (e) => {
+            e.preventDefault();
+        });          container.addEventListener('drop', (e) => {
+            e.preventDefault();
+            if (draggedElement) {
+                const rect = container.getBoundingClientRect();
+                const x = e.clientX - rect.left - draggedElement.offsetWidth / 2;
+                const y = e.clientY - rect.top - draggedElement.offsetHeight / 2;
+                
+                // Convert to percentages
+                const xPercent = (x / rect.width) * 100;
+                const yPercent = (y / rect.height) * 100;
+                
+                // Update position and input fields based on element type
+                if (draggedElement.classList.contains('current-temp')) {
+                    draggedElement.style.left = `${xPercent}%`;
+                    draggedElement.style.top = `${yPercent}%`;
+                    draggedElement.style.right = 'unset';
+                    document.getElementById('currentTop').value = Math.round(yPercent);
+                    document.getElementById('currentLeft').value = Math.round(xPercent);
+                } else if (draggedElement.classList.contains('target-temp')) {
+                    const rightPercent = ((rect.width - x - draggedElement.offsetWidth) / rect.width) * 100;
+                    draggedElement.style.right = `${rightPercent}%`;
+                    draggedElement.style.top = `${yPercent}%`;
+                    draggedElement.style.left = 'unset';
+                    document.getElementById('targetTop').value = Math.round(yPercent);
+                    document.getElementById('targetRight').value = Math.round(rightPercent);
+                } else if (draggedElement.classList.contains('temp-up')) {
+                    const leftPercent = (x / rect.width) * 100;
+                    const bottomPercent = ((rect.height - y - draggedElement.offsetHeight) / rect.height) * 100;
+                    draggedElement.style.left = `${leftPercent}%`;
+                    draggedElement.style.bottom = `${bottomPercent}%`;
+                    draggedElement.style.right = 'unset';
+                    draggedElement.style.top = 'unset';
+                    document.getElementById('tempUpBottom').value = Math.round(bottomPercent);
+                    document.getElementById('tempUpLeft').value = Math.round(leftPercent);
+                } else if (draggedElement.classList.contains('temp-down')) {
+                    const leftPercent = (x / rect.width) * 100;
+                    const bottomPercent = ((rect.height - y - draggedElement.offsetHeight) / rect.height) * 100;
+                    draggedElement.style.left = `${leftPercent}%`;
+                    draggedElement.style.bottom = `${bottomPercent}%`;
+                    draggedElement.style.right = 'unset';
+                    draggedElement.style.top = 'unset';
+                    document.getElementById('tempDownBottom').value = Math.round(bottomPercent);
+                    document.getElementById('tempDownLeft').value = Math.round(leftPercent);                } else if (draggedElement.classList.contains('heat-toggle')) {
+                    const rightPercent = ((rect.width - x - draggedElement.offsetWidth) / rect.width) * 100;
+                    const bottomPercent = ((rect.height - y - draggedElement.offsetHeight) / rect.height) * 100;
+                    draggedElement.style.right = `${rightPercent}%`;
+                    draggedElement.style.bottom = `${bottomPercent}%`;
+                    draggedElement.style.left = 'unset';
+                    draggedElement.style.top = 'unset';
+                    document.getElementById('heatBottom').value = Math.round(bottomPercent);
+                    document.getElementById('heatRight').value = Math.round(rightPercent);
+                } else if (draggedElement.classList.contains('fan-toggle')) {
+                    const rightPercent = ((rect.width - x - draggedElement.offsetWidth) / rect.width) * 100;
+                    const bottomPercent = ((rect.height - y - draggedElement.offsetHeight) / rect.height) * 100;
+                    draggedElement.style.right = `${rightPercent}%`;
+                    draggedElement.style.bottom = `${bottomPercent}%`;
+                    draggedElement.style.left = 'unset';
+                    draggedElement.style.top = 'unset';
+                    document.getElementById('fanBottom').value = Math.round(bottomPercent);
+                    document.getElementById('fanRight').value = Math.round(rightPercent);
+                }
+                
+                draggedElement = null;
+            }
+        });          function updatePosition(className) {
+            const element = document.querySelector(`.${className}`);
+            
+            switch(className) {
+                case 'current-temp':
+                    const currentTop = document.getElementById('currentTop').value;
+                    const currentLeft = document.getElementById('currentLeft').value;
+                    const currentFontSize = document.getElementById('currentFontSize').value;
+                    const currentColor = document.getElementById('currentColor').value;
+                    element.style.top = `${currentTop}%`;
+                    element.style.left = `${currentLeft}%`;
+                    element.style.fontSize = `${currentFontSize / 16}rem`;
+                    element.style.color = currentColor;
+                    element.style.right = 'unset';
+                    break;
+                    
+                case 'target-temp':
+                    const targetTop = document.getElementById('targetTop').value;
+                    const targetRight = document.getElementById('targetRight').value;
+                    const targetFontSize = document.getElementById('targetFontSize').value;
+                    const targetColor = document.getElementById('targetColor').value;
+                    element.style.top = `${targetTop}%`;
+                    element.style.right = `${targetRight}%`;
+                    element.style.fontSize = `${targetFontSize / 16}rem`;
+                    element.style.color = targetColor;
+                    element.style.left = 'unset';
+                    break;
+                      case 'temp-down':
+                    const tempDownBottom = document.getElementById('tempDownBottom').value;
+                    const tempDownLeft = document.getElementById('tempDownLeft').value;
+                    const tempDownSize = document.getElementById('tempDownSize').value;
+                    const tempDownColor = document.getElementById('tempDownColor').value;
+                    element.style.bottom = `${tempDownBottom}%`;
+                    element.style.left = `${tempDownLeft}%`;
+                    element.style.width = `${tempDownSize}%`;
+                    element.style.height = `${tempDownSize}%`;
+                    element.style.color = tempDownColor;
+                    element.style.right = 'unset';
+                    element.style.top = 'unset';
+                    break;
+                    
+                case 'temp-up':
+                    const tempUpBottom = document.getElementById('tempUpBottom').value;
+                    const tempUpLeft = document.getElementById('tempUpLeft').value;
+                    const tempUpSize = document.getElementById('tempUpSize').value;
+                    const tempUpColor = document.getElementById('tempUpColor').value;
+                    element.style.bottom = `${tempUpBottom}%`;
+                    element.style.left = `${tempUpLeft}%`;
+                    element.style.width = `${tempUpSize}%`;
+                    element.style.height = `${tempUpSize}%`;
+                    element.style.color = tempUpColor;
+                    element.style.right = 'unset';
+                    element.style.top = 'unset';
+                    break;
+                      case 'heat-toggle':
+                    const heatBottom = document.getElementById('heatBottom').value;
+                    const heatRight = document.getElementById('heatRight').value;
+                    const heatWidth = document.getElementById('heatWidth').value;
+                    const heatHeight = document.getElementById('heatHeight').value;
+                    const heatColor = document.getElementById('heatColor').value;
+                    const heatFontSize = document.getElementById('heatFontSize').value;
+                    element.style.bottom = `${heatBottom}%`;
+                    element.style.right = `${heatRight}%`;
+                    element.style.width = `${heatWidth / 16}rem`;
+                    element.style.height = `${heatHeight / 16}rem`;
+                    element.style.color = heatColor;
+                    element.style.fontSize = `${heatFontSize / 16}rem`;
+                    element.style.left = 'unset';
+                    element.style.top = 'unset';
+                    break;
+                    
+                case 'fan-toggle':
+                    const fanBottom = document.getElementById('fanBottom').value;
+                    const fanRight = document.getElementById('fanRight').value;
+                    const fanWidth = document.getElementById('fanWidth').value;
+                    const fanHeight = document.getElementById('fanHeight').value;
+                    const fanColor = document.getElementById('fanColor').value;
+                    const fanFontSize = document.getElementById('fanFontSize').value;
+                    element.style.bottom = `${fanBottom}%`;
+                    element.style.right = `${fanRight}%`;
+                    element.style.width = `${fanWidth / 16}rem`;
+                    element.style.height = `${fanHeight / 16}rem`;
+                    element.style.color = fanColor;
+                    element.style.fontSize = `${fanFontSize / 16}rem`;
+                    break;
+            }
+        }        function generateCSS() {
+            const currentTemp = document.querySelector('.current-temp');
+            const targetTemp = document.querySelector('.target-temp');
+            const tempDown = document.querySelector('.temp-down');
+            const tempUp = document.querySelector('.temp-up');
+            const heatToggle = document.querySelector('.heat-toggle');
+            const fanToggle = document.querySelector('.fan-toggle');
+            const container = document.querySelector('.volcano-container');
+            
+            const css = `
+/* Container */
+.volcano-container {
+    position: relative;
+    width: ${container.style.width || '25rem'};
+    height: ${container.style.height || '25rem'};
+    border-radius: ${container.style.borderRadius || '1.25rem'};
+    background: ${container.style.background || 'white'};
+    box-shadow: ${container.style.boxShadow || '0 0.25rem 1.25rem rgba(0,0,0,0.1)'};
+    margin: 1.25rem auto;
+    overflow: hidden;
+}
+
+.volcano-svg {
+    width: 100%;
+    height: 100%;
+}
+
+/* Temperature Displays */
+.temperature-display {
+    position: absolute;
+    font-family: ${currentTemp.style.fontFamily || "'Orbitron', 'Courier New', monospace"};
+    font-weight: 900;
+    cursor: move;
+    user-select: none;
+    text-shadow: 
+        0 0 0.3125rem currentColor,
+        0 0 0.625rem currentColor,
+        0 0 0.9375rem currentColor;
+    letter-spacing: ${currentTemp.style.letterSpacing || '0.125rem'};
+    background: linear-gradient(90deg, currentColor 0%, transparent 50%, currentColor 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    animation: digitalFlicker 3s infinite;
+}
+
+@keyframes digitalFlicker {
+    0%, 98% { opacity: 1; }
+    99%, 100% { opacity: 0.95; }
+}
+
+.current-temp {
+    top: ${currentTemp.style.top || '25%'};
+    left: ${currentTemp.style.left || '25%'};
+    font-size: ${currentTemp.style.fontSize || '2rem'};
+    color: ${currentTemp.style.color || '#ff6b35'};
+    filter: drop-shadow(0 0 0.5rem ${currentTemp.style.color || '#ff6b35'});
+}
+
+.target-temp {
+    top: ${targetTemp.style.top || '25%'};
+    right: ${targetTemp.style.right || '25%'};
+    font-size: ${targetTemp.style.fontSize || '2rem'};
+    color: ${targetTemp.style.color || '#4a90e2'};
+    filter: drop-shadow(0 0 0.5rem ${targetTemp.style.color || '#4a90e2'});
+}
+
+/* Control Buttons */
+.control-button {
+    position: absolute;
+    background: rgba(255,255,255,0.95);
+    border: none;
+    border-radius: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    cursor: pointer;
+    box-shadow: 0 0.125rem 0.625rem rgba(0,0,0,0.2);
+    font-weight: bold;
+    transition: all 0.3s ease;
+}
+
+.control-button:hover {
+    transform: scale(1.1);
+    box-shadow: 0 0.25rem 0.9375rem rgba(0,0,0,0.3);
+}
+
+.control-button.active {
+    background: #ff6b35;
+    color: white;
+}
+
+.temp-down {
+    bottom: ${tempDown.style.bottom || '20%'};
+    left: ${tempDown.style.left || '20%'};
+    width: ${tempDown.style.width || '10%'};
+    height: ${tempDown.style.height || '10%'};
+    color: ${tempDown.style.color || '#4a90e2'};
+    border-radius: 50%;
+    font-size: 1.25rem;
+}
+
+.temp-up {
+    bottom: ${tempUp.style.bottom || '20%'};
+    left: ${tempUp.style.left || '35%'};
+    width: ${tempUp.style.width || '10%'};
+    height: ${tempUp.style.height || '10%'};
+    color: ${tempUp.style.color || '#ff6b35'};
+    border-radius: 50%;
+    font-size: 1.25rem;
+}
+
+.heat-toggle {
+    bottom: ${heatToggle.style.bottom || '20%'};
+    right: ${heatToggle.style.right || '35%'};
+    width: ${heatToggle.style.width || '3.75rem'};
+    height: ${heatToggle.style.height || '2.5rem'};
+    color: ${heatToggle.style.color || '#ff4444'};
+    font-size: ${heatToggle.style.fontSize || '0.875rem'};
+}
+
+.fan-toggle {
+    bottom: ${fanToggle.style.bottom || '20%'};
+    right: ${fanToggle.style.right || '20%'};
+    width: ${fanToggle.style.width || '3.125rem'};
+    height: ${fanToggle.style.height || '2.5rem'};
+    color: ${fanToggle.style.color || '#44aa44'};
+    font-size: ${fanToggle.style.fontSize || '0.875rem'};
+}
+
+/* Status Indicators */
+.status-indicator {
+    position: absolute;
+    top: 5%;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 0.625rem;
+}
+
+.status-dot {
+    width: 0.75rem;
+    height: 0.75rem;
+    border-radius: 50%;
+    background: #ccc;
+}
+
+.status-dot.heat-on {
+    background: #ff4444;
+    animation: pulse 2s infinite;
+}
+
+.status-dot.fan-on {
+    background: #44aa44;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 1; }
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.coordinates {
+    position: absolute;
+    bottom: 2.5%;
+    left: 2.5%;
+    background: rgba(0,0,0,0.7);
+    color: white;
+    padding: 0.3125rem 0.625rem;
+    border-radius: 0.3125rem;
+    font-size: 0.75rem;
+}`;
+            
+            document.getElementById('cssCode').textContent = css;
+            document.getElementById('cssOutput').style.display = 'block';
+        }
+          function loadTraceSVG() {
+            const volcanoSvg = document.getElementById('volcanoSvg');
+            volcanoSvg.innerHTML = '<object data="trace.svg" type="image/svg+xml" style="width: 100%; height: 100%; pointer-events: none;"></object>';
+        }
+        
+        // Initialize font size inputs with current values
+        function initializeFontSizes() {
+            const currentTemp = document.querySelector('.current-temp');
+            const targetTemp = document.querySelector('.target-temp');
+            
+            const currentFontSize = parseInt(window.getComputedStyle(currentTemp).fontSize);
+            const targetFontSize = parseInt(window.getComputedStyle(targetTemp).fontSize);
+            
+            document.getElementById('currentFontSize').value = currentFontSize;
+            document.getElementById('targetFontSize').value = targetFontSize;
+        }
+        
+        // Initialize on page load
+        window.addEventListener('load', initializeFontSizes);
+        
+        // Simulate temperature changes
+        setInterval(() => {
+            const currentTempDisplay = document.querySelector('.current-temp');
+            const temp = 180 + Math.round(Math.random() * 20);
+            currentTempDisplay.textContent = temp.toString();
+        }, 3000);
+        
+        // Button click handlers for testing
+        document.querySelector('.heat-toggle').addEventListener('click', function() {
+            this.classList.toggle('active');
+            const heatDot = document.querySelector('.status-dot.heat-on');
+            if (this.classList.contains('active')) {
+                heatDot.style.display = 'block';
+            } else {
+                heatDot.style.display = 'none';
+            }
+        });
+        
+        document.querySelector('.fan-toggle').addEventListener('click', function() {
+            this.classList.toggle('active');
+            const fanDot = document.querySelector('.status-dot.fan-on');
+            if (this.classList.contains('active')) {
+                fanDot.style.display = 'block';
+            } else {
+                fanDot.style.display = 'none';
+            }
+        });
+        
+        function updateContainer() {
+            const container = document.getElementById('volcanoContainer');
+            const width = document.getElementById('containerWidth').value;
+            const height = document.getElementById('containerHeight').value;
+            const radius = document.getElementById('containerRadius').value;
+            const bg = document.getElementById('containerBg').value;
+            const shadowBlur = document.getElementById('shadowBlur').value;
+            
+            container.style.width = `${width}px`;
+            container.style.height = `${height}px`;
+            container.style.borderRadius = `${radius}px`;
+            container.style.background = bg;
+            container.style.boxShadow = `0 4px ${shadowBlur}px rgba(0,0,0,0.1)`;
+        }
+        
+        function updateTypography() {
+            const fontFamily = document.getElementById('fontFamily').value;
+            const letterSpacing = document.getElementById('letterSpacing').value;
+            
+            document.querySelectorAll('.temperature-display').forEach(element => {
+                element.style.fontFamily = fontFamily;
+                element.style.letterSpacing = `${letterSpacing}px`;
+            });
+        }
+          function resetToDefaults() {
+            // Reset all inputs to default values            document.getElementById('currentTop').value = 31;
+            document.getElementById('currentLeft').value = 42;
+            document.getElementById('currentFontSize').value = 32;
+            document.getElementById('currentColor').value = '#ff6b35';
+            
+            document.getElementById('targetTop').value = 41.5;
+            document.getElementById('targetRight').value = 38.25;
+            document.getElementById('targetFontSize').value = 32;
+            document.getElementById('targetColor').value = '#ffffff';
+            
+            document.getElementById('tempDownBottom').value = 7.5;
+            document.getElementById('tempDownLeft').value = 18.75;
+            document.getElementById('tempDownSize').value = 12.5;
+            document.getElementById('tempDownColor').value = '#4a90e2';
+            
+            document.getElementById('tempUpBottom').value = 7.5;
+            document.getElementById('tempUpLeft').value = 32.5;
+            document.getElementById('tempUpSize').value = 12.5;
+            document.getElementById('tempUpColor').value = '#ff6b35';
+            
+            document.getElementById('heatBottom').value = 8.75;
+            document.getElementById('heatRight').value = 35;
+            document.getElementById('heatWidth').value = 15;
+            document.getElementById('heatHeight').value = 10;
+            document.getElementById('heatColor').value = '#ff4444';
+            document.getElementById('heatFontSize').value = 14;
+            
+            document.getElementById('fanBottom').value = 8.75;
+            document.getElementById('fanRight').value = 18.75;
+            document.getElementById('fanWidth').value = 12.5;
+            document.getElementById('fanHeight').value = 10;
+            document.getElementById('fanColor').value = '#44aa44';
+            document.getElementById('fanFontSize').value = 14;
+            
+            document.getElementById('containerWidth').value = 400;
+            document.getElementById('containerHeight').value = 400;
+            document.getElementById('containerRadius').value = 20;
+            document.getElementById('containerBg').value = '#ffffff';
+            document.getElementById('shadowBlur').value = 20;
+            
+            document.getElementById('fontFamily').value = "'Orbitron', monospace";
+            document.getElementById('letterSpacing').value = 2;
+            
+            // Apply all defaults
+            updatePosition('current-temp');
+            updatePosition('target-temp');
+            updatePosition('temp-down');
+            updatePosition('temp-up');
+            updatePosition('heat-toggle');
+            updatePosition('fan-toggle');
+            updateContainer();
+            updateTypography();
+        }
+        
+        function copyCSSToClipboard() {
+            const cssCode = document.getElementById('cssCode').textContent;
+            if (cssCode) {
+                navigator.clipboard.writeText(cssCode).then(() => {
+                    alert('CSS copied to clipboard!');
+                });
+            } else {
+                alert('Generate CSS first!');
+            }
+        }
+    </script>
+</body>
+</html>

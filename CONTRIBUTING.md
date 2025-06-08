@@ -261,6 +261,37 @@ The integration communicates with the Volcano Hybrid via Bluetooth LE:
 - Focus on what's best for the community
 - Show empathy towards other community members
 
+## Frontend Development
+
+### Custom Lovelace Card
+
+The integration includes a custom Lovelace card (`volcano-card.js`) with the following structure:
+
+**Files:**
+- `www/volcano-card.js` - Main card implementation
+- `www/volcano-card-editor.js` - Configuration UI
+- `www/trace.svg` - SVG volcano background
+- `test-positioning.html` - Development testing tool
+
+**Development Workflow:**
+1. Edit card files in the `www/` directory
+2. Copy files to your HA `config/www/` directory for testing
+3. Use browser dev tools (F12) to debug JavaScript
+4. Test with `test-positioning.html` for layout adjustments
+5. Clear browser cache (Ctrl+F5) after changes
+
+**Card Architecture:**
+- Extends `LitElement` for reactive updates
+- Uses Home Assistant's `hass` object for entity state
+- SVG positioning uses percentage-based coordinates
+- Responsive CSS with mobile-first design
+
+**Testing the Card:**
+1. Open `test-positioning.html` in a browser
+2. Drag elements to test positioning
+3. Verify responsive behavior at different screen sizes
+4. Test all interactive elements (buttons, displays)
+
 ## Questions?
 
 If you have questions about contributing:
