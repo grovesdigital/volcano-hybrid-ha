@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.1] - 2025-06-13
+
+### 🐛 Fixed
+- **Critical Status Register Decoding**: Fixed incorrect bit masks causing fan and heat states to appear linked
+  - Heat status now uses correct bit 5 mask (0x0020)
+  - Fan status now uses correct bit 13 mask (0x2000)
+  - Status register now properly decoded as 16-bit little-endian instead of single byte
+- **Session Tracking Simplification**: Simplified session detection to be heat-based rather than complex temperature thresholds
+  - Session starts when heating mode turns on
+  - Session ends when heating mode turns off
+  - Removed complex temperature-based session detection logic
+- **Connection State Management**: Fixed AttributeError for `is_connected` property during initialization
+- **Statistics Sensor Availability**: Fixed statistics sensors showing "unavailable" on fresh installations
+
+### 🔧 Changed
+- **Session Definition**: Sessions are now simply defined as "heating mode on" to "heating mode off" cycles
+- **Status Register Handling**: Improved reliability of heat and fan state independence
+
 ## [1.2.0] - 2025-06-13
 
 ### ⚠️ BREAKING CHANGES

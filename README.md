@@ -2,6 +2,14 @@
 
 A complete Home Assistant integration for the Storz & Bickel Volcano Hybrid vaporizer, providing full device control, rich usage statistics, and comprehensive automation building blocks.
 
+## ⚠️ Recent Updates (v1.2.1)
+
+**Critical Fixes:**
+- Fixed fan and heat state linkage issue - states are now properly independent
+- Simplified session tracking to heat-based detection (heat on = session start, heat off = session end)  
+- Fixed status register decoding using correct 16-bit bitmasks
+- Resolved statistics sensors showing "unavailable" on fresh installations
+
 ## Features
 
 ### Device Control

@@ -97,6 +97,7 @@ class VolcanoCoordinator(DataUpdateCoordinator):
         self._last_temp: int | None = None
         self._last_target_temp: int | None = None
         self._last_fan_state: bool = False
+        self._last_heat_state: bool = False
 
     @property
     def device_info(self):
@@ -116,77 +117,14 @@ class VolcanoCoordinator(DataUpdateCoordinator):
             self._sessions_today = 0
             self._last_reset_date = today
 
-    def _detect_session_start(self, current_temp: int, target_temp: int) -> None:
-        """Detect session start and fire event."""
-        # Session starts when temp goes from low to heating up with a target set
-        if (self._last_temp is not None and 
-            self._last_temp < 50 and 
-            current_temp > 60 and 
-            target_temp > 100 and
-            self._session_start_time is None):
-            
-            self._session_start_time = datetime.now()
-            self._sessions_today += 1
-            self._total_sessions += 1
-            
-            self.hass.bus.async_fire("volcano_session_event", {
-                "type": "session_started",
-                "target_temperature": target_temp,
-                "current_temperature": current_temp,
-                "timestamp": self._session_start_time.isoformat(),
-                "session_count_today": self._sessions_today,
-                "total_sessions": self._total_sessions,
-            })
-            _LOGGER.debug("Session started - Target: %s°C", target_temp)
-
-    def _detect_temperature_reached(self, current_temp: int, target_temp: int) -> None:
-        """Detect when target temperature is reached."""
-        if (target_temp and current_temp >= (target_temp - 5) and 
-            self._last_temp is not None and 
-            self._last_temp < (target_temp - 5)):
-            
-            self.hass.bus.async_fire("volcano_session_event", {
-                "type": "temperature_reached",
-                "target_temperature": target_temp,
-                "actual_temperature": current_temp,
-                "timestamp": datetime.now().isoformat(),
-                "session_active": self._session_start_time is not None,
-            })
-            _LOGGER.debug("Target temperature reached - %s°C", current_temp)
-
-    def _detect_session_end(self, current_temp: int, fan_on: bool) -> None:
-        """Detect session end and calculate duration."""
-        # Session ends when temp drops significantly or manual shutdown
-        session_ending = (
-            (current_temp < 50 and self._last_temp and self._last_temp > 80) or
-            (not fan_on and self._last_fan_state and current_temp > 100)
-        )
-        
-        if session_ending and self._session_start_time is not None:
-            session_end_time = datetime.now()
-            duration = (session_end_time - self._session_start_time).total_seconds() / 60  # minutes
-            
-            self._session_durations.append(duration)
-            # Keep only last 100 sessions for average calculation
-            if len(self._session_durations) > 100:
-                self._session_durations.pop(0)
-            
-            self._last_session_end_time = session_end_time
-            
-            self.hass.bus.async_fire("volcano_session_event", {
-                "type": "session_ended",
-                "duration_minutes": round(duration, 1),
-                "start_time": self._session_start_time.isoformat(),
-                "end_time": session_end_time.isoformat(),
-                "timestamp": session_end_time.isoformat(),
-            })
-            
-            self._session_start_time = None
-            _LOGGER.debug("Session ended - Duration: %.1f minutes", duration)
-
     def _handle_fan_events(self, fan_on: bool) -> None:
         """Handle fan state changes and fire events."""
         if fan_on != self._last_fan_state:
+            # MISSING: Update coordinator data state
+            if not hasattr(self, 'data') or self.data is None:
+                self.data = {}
+            self.data["fan_on"] = fan_on  # Add this line
+            
             if fan_on:
                 self.hass.bus.async_fire("volcano_session_event", {
                     "type": "fan_started",
@@ -196,11 +134,58 @@ class VolcanoCoordinator(DataUpdateCoordinator):
                 _LOGGER.debug("Fan started")
             else:
                 self.hass.bus.async_fire("volcano_session_event", {
-                    "type": "fan_stopped",
+                    "type": "fan_stopped", 
                     "timestamp": datetime.now().isoformat(),
                     "session_active": self._session_start_time is not None,
                 })
                 _LOGGER.debug("Fan stopped")
+            
+            self._last_fan_state = fan_on
+            
+            # Force update of all entities
+            self.async_update_listeners()
+
+    def _handle_heat_events(self, heat_on: bool) -> None:
+        """Handle heat state changes and session tracking."""
+        if heat_on != self._last_heat_state:
+            if heat_on:
+                # Heat turned on = session started
+                if self._session_start_time is None:  # Prevent duplicate starts
+                    self._session_start_time = datetime.now()
+                    self._sessions_today += 1
+                    self._total_sessions += 1
+                    
+                    self.hass.bus.async_fire("volcano_session_event", {
+                        "type": "session_started",
+                        "timestamp": self._session_start_time.isoformat(),
+                        "session_count_today": self._sessions_today,
+                        "total_sessions": self._total_sessions,
+                    })
+                    _LOGGER.debug("Session started - Heat turned on")
+            else:
+                # Heat turned off = session ended
+                if self._session_start_time is not None:
+                    session_end_time = datetime.now()
+                    duration = (session_end_time - self._session_start_time).total_seconds() / 60
+                    
+                    self._session_durations.append(duration)
+                    if len(self._session_durations) > 100:
+                        self._session_durations.pop(0)
+                    
+                    self._last_session_end_time = session_end_time
+                    
+                    self.hass.bus.async_fire("volcano_session_event", {
+                        "type": "session_ended",
+                        "duration_minutes": round(duration, 1),
+                        "start_time": self._session_start_time.isoformat(),
+                        "end_time": session_end_time.isoformat(),
+                        "timestamp": session_end_time.isoformat(),
+                    })
+                    
+                    self._session_start_time = None
+                    _LOGGER.debug("Session ended - Heat turned off, Duration: %.1f minutes", duration)
+            
+            self._last_heat_state = heat_on
 
     @property
     def sessions_today(self) -> int:
@@ -338,12 +323,12 @@ class VolcanoCoordinator(DataUpdateCoordinator):
             fan_on = status.get("fan_on", False) if status else False
             
             if current_temp is not None and target_temp is not None:
-                self._detect_session_start(current_temp, target_temp)
-                self._detect_temperature_reached(current_temp, target_temp)
-                self._detect_session_end(current_temp, fan_on)
+                # Removed session start/stop detection based on temperature
+                pass
             
             if status:
                 self._handle_fan_events(fan_on)
+                self._handle_heat_events(status.get("heat_on", False))
             
             # Update tracking variables
             self._last_temp = current_temp

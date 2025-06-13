@@ -31,6 +31,9 @@ from .exceptions import VolcanoConnectionError
 
 _LOGGER = logging.getLogger(__name__)
 
+# Define correct masks based on user feedback
+STATUS_HEAT_ON_MASK = 0x0020  # Bit 5 for Heat
+STATUS_FAN_ON_MASK = 0x2000   # Bit 13 for Fan
 
 class VolcanoAPI:
     """BLE API for Volcano Hybrid."""
@@ -156,45 +159,84 @@ class VolcanoAPI:
             _LOGGER.debug("Temperature updated: %s°C", temp)
 
     def _handle_status_notification(self, sender: int, data: bytearray) -> None:
-        """Handle status notification."""
-        if len(data) >= 1:
-            status = data[0]
-            self._heat_on = bool(status & 0x01)
-            self._fan_on = bool(status & 0x02)
-            _LOGGER.debug("Status updated - Heat: %s, Fan: %s", self._heat_on, self._fan_on)
+        """Handle status notifications from the device."""
+        if not self._status_update_callback:
+            _LOGGER.debug("Status update callback not set, ignoring notification.")
+            return
 
-    @property
-    def is_connected(self) -> bool:
-        """Return if device is connected."""
-        return self._is_connected and self._client is not None and self._client.is_connected
+        if len(data) >= 2:  # Expecting at least 2 bytes for the 16-bit status
+            # Decode the 16-bit little-endian status register
+            decoded_status = data[0] | (data[1] << 8)
+            _LOGGER.debug(
+                "Received status notification. Raw data: %s, Decoded: %s. API state before: Heat=%s, Fan=%s",
+                data.hex(), hex(decoded_status), self._heat_on, self._fan_on
+            )
 
-    async def get_current_temperature(self) -> float:
-        """Get current temperature."""
+            new_heat_on = bool(decoded_status & STATUS_HEAT_ON_MASK)
+            new_fan_on = bool(decoded_status & STATUS_FAN_ON_MASK)
+
+            heat_changed = new_heat_on != self._heat_on
+            fan_changed = new_fan_on != self._fan_on
+
+            if heat_changed:
+                _LOGGER.debug("Notification: Heat state changed from %s to %s.", self._heat_on, new_heat_on)
+                self._heat_on = new_heat_on
+            
+            if fan_changed:
+                _LOGGER.debug("Notification: Fan state changed from %s to %s.", self._fan_on, new_fan_on)
+                self._fan_on = new_fan_on
+
+            # If any relevant state changed, trigger the callback.
+            # This ensures HA gets all updates if the notification contained more than just heat/fan.
+            if heat_changed or fan_changed:
+                _LOGGER.debug(
+                    "Calling status update callback. New API state: Heat=%s, Fan=%s",
+                    self._heat_on, self._fan_on
+                )
+                self._status_update_callback()
+            else:
+                _LOGGER.debug("No change in heat or fan state from notification. API state: Heat=%s, Fan=%s", self._heat_on, self._fan_on)
+        else:
+            _LOGGER.warning("Received status notification with insufficient data length: %d bytes, data: %s", len(data), data.hex())
+
+    async def _update_status_from_register(self) -> None:
+        """Update heat and fan status from device status register during polling."""
         if not self.is_connected:
-            raise VolcanoConnectionError("Device not connected")
-        
-        try:
-            data = await self._client.read_gatt_char(CHAR_CURRENT_TEMP)
-            temp = struct.unpack("<H", data[:2])[0] / 10.0
-            self._current_temperature = temp
-            return temp
-        except Exception as err:
-            _LOGGER.error("Failed to read current temperature: %s", err)
-            raise VolcanoConnectionError(f"Failed to read temperature: {err}") from err
+            _LOGGER.debug("Not connected, skipping polled status update from register.")
+            return
 
-    async def get_target_temperature(self) -> float:
-        """Get target temperature."""
-        if not self.is_connected:
-            raise VolcanoConnectionError("Device not connected")
-        
         try:
-            data = await self._client.read_gatt_char(CHAR_TARGET_TEMP)
-            temp = struct.unpack("<H", data[:2])[0] / 10.0
-            self._target_temperature = temp
-            return temp
+            status_data = await self._client.read_gatt_char(CHAR_STATUS_REGISTER)
+            if status_data and len(status_data) >= 2: # Expecting at least 2 bytes
+                # Decode the 16-bit little-endian status register
+                decoded_status = status_data[0] | (status_data[1] << 8)
+                _LOGGER.debug(
+                    "Read status register (polling). Raw data: %s, Decoded: %s. API state before: Heat=%s, Fan=%s",
+                    status_data.hex(), hex(decoded_status), self._heat_on, self._fan_on
+                )
+
+                new_heat_on = bool(decoded_status & STATUS_HEAT_ON_MASK)
+                new_fan_on = bool(decoded_status & STATUS_FAN_ON_MASK)
+
+                heat_changed = new_heat_on != self._heat_on
+                fan_changed = new_fan_on != self._fan_on
+
+                if heat_changed:
+                    _LOGGER.debug("Polling: Heat state changed from %s to %s.", self._heat_on, new_heat_on)
+                    self._heat_on = new_heat_on
+                
+                if fan_changed:
+                    _LOGGER.debug("Polling: Fan state changed from %s to %s.", self._fan_on, new_fan_on)
+                    self._fan_on = new_fan_on
+                
+                if heat_changed or fan_changed:
+                    _LOGGER.debug("Polled status update resulted in API state change. New API state: Heat=%s, Fan=%s", self._heat_on, self._fan_on)
+                else:
+                    _LOGGER.debug("Polled status update did not change API state. API state: Heat=%s, Fan=%s", self._heat_on, self._fan_on)
+            else:
+                _LOGGER.warning("Failed to read valid status register data or data is too short during polling. Length: %s, Data: %s", len(status_data) if status_data else "None", status_data.hex() if status_data else "None")
         except Exception as err:
-            _LOGGER.error("Failed to read target temperature: %s", err)
-            raise VolcanoConnectionError(f"Failed to read target temperature: {err}") from err
+            _LOGGER.error("Error reading or parsing status register during polling: %s", err)
 
     async def set_target_temperature(self, temperature: float) -> None:
         """Set target temperature."""
@@ -218,88 +260,60 @@ class VolcanoAPI:
         """Turn heat on."""
         if not self.is_connected:
             raise VolcanoConnectionError("Device not connected")
-        
         try:
-            await self._client.write_gatt_char(CHAR_HEAT_ON, b"\x01")
-            # Immediately read status to confirm change
-            await asyncio.sleep(0.1)  # Small delay to let device process
-            try:
-                status_data = await self._client.read_gatt_char(CHAR_STATUS_REGISTER)
-                if len(status_data) >= 1:
-                    status = status_data[0]
-                    self._heat_on = bool(status & 0x01)
-            except Exception:
-                # Fall back to optimistic update if status read fails
-                self._heat_on = True
-            _LOGGER.debug("Heat turned on - Actual state: %s", self._heat_on)
+            # Assuming CHAR_HEAT_ON command and its payload are correct from previous discussions
+            await self._client.write_gatt_char(CHAR_HEAT_ON, b"\x01") 
+            self._heat_on = True # Optimistic update
+            await asyncio.sleep(0.1) 
+            _LOGGER.debug("Heat turned on (optimistic). API state: Heat=%s, Fan=%s", self._heat_on, self._fan_on)
         except Exception as err:
             _LOGGER.error("Failed to turn heat on: %s", err)
+            self._heat_on = False # Revert optimistic update on error
             raise VolcanoConnectionError(f"Failed to turn heat on: {err}") from err
 
     async def set_heat_off(self) -> None:
         """Turn heat off."""
         if not self.is_connected:
             raise VolcanoConnectionError("Device not connected")
-        
         try:
-            await self._client.write_gatt_char(CHAR_HEAT_OFF, b"\x00")
-            # Immediately read status to confirm change
-            await asyncio.sleep(0.1)  # Small delay to let device process
-            try:
-                status_data = await self._client.read_gatt_char(CHAR_STATUS_REGISTER)
-                if len(status_data) >= 1:
-                    status = status_data[0]
-                    self._heat_on = bool(status & 0x01)
-            except Exception:
-                # Fall back to optimistic update if status read fails
-                self._heat_on = False
-            _LOGGER.debug("Heat turned off - Actual state: %s", self._heat_on)
+            # Assuming CHAR_HEAT_OFF command and its payload are correct
+            await self._client.write_gatt_char(CHAR_HEAT_OFF, b"\x00") 
+            self._heat_on = False # Optimistic update
+            await asyncio.sleep(0.1)
+            _LOGGER.debug("Heat turned off (optimistic). API state: Heat=%s, Fan=%s", self._heat_on, self._fan_on)
         except Exception as err:
             _LOGGER.error("Failed to turn heat off: %s", err)
+            self._heat_on = True # Revert optimistic update on error
             raise VolcanoConnectionError(f"Failed to turn heat off: {err}") from err
 
     async def set_fan_on(self) -> None:
         """Turn fan on."""
         if not self.is_connected:
             raise VolcanoConnectionError("Device not connected")
-        
         try:
+            # Assuming CHAR_FAN_ON command and its payload are correct
             await self._client.write_gatt_char(CHAR_FAN_ON, b"\x01")
-            # Immediately read status to confirm change
-            await asyncio.sleep(0.1)  # Small delay to let device process
-            try:
-                status_data = await self._client.read_gatt_char(CHAR_STATUS_REGISTER)
-                if len(status_data) >= 1:
-                    status = status_data[0]
-                    self._fan_on = bool(status & 0x02)
-            except Exception:
-                # Fall back to optimistic update if status read fails
-                self._fan_on = True
-            _LOGGER.debug("Fan turned on - Actual state: %s", self._fan_on)
+            self._fan_on = True # Optimistic update
+            await asyncio.sleep(0.1)
+            _LOGGER.debug("Fan turned on (optimistic). API state: Heat=%s, Fan=%s", self._heat_on, self._fan_on)
         except Exception as err:
             _LOGGER.error("Failed to turn fan on: %s", err)
+            self._fan_on = False # Revert optimistic update on error
             raise VolcanoConnectionError(f"Failed to turn fan on: {err}") from err
 
     async def set_fan_off(self) -> None:
         """Turn fan off."""
         if not self.is_connected:
             raise VolcanoConnectionError("Device not connected")
-        
         try:
+            # Assuming CHAR_FAN_OFF command and its payload are correct
             await self._client.write_gatt_char(CHAR_FAN_OFF, b"\x00")
-            # Immediately read status to confirm change
-            await asyncio.sleep(0.1)  # Small delay to let device process
-            try:
-                status_data = await self._client.read_gatt_char(CHAR_STATUS_REGISTER)
-                if len(status_data) >= 1:
-                    status = status_data[0]
-                    self._fan_on = bool(status & 0x02)
-            except Exception:
-                # Fall back to optimistic update if status read fails
-                self._fan_on = False
-            _LOGGER.debug("Fan turned off - Actual state: %s", self._fan_on)
+            self._fan_on = False # Optimistic update
+            await asyncio.sleep(0.1)
+            _LOGGER.debug("Fan turned off (optimistic). API state: Heat=%s, Fan=%s", self._heat_on, self._fan_on)
         except Exception as err:
             _LOGGER.error("Failed to turn fan off: %s", err)
+            self._fan_on = True # Revert optimistic update on error
             raise VolcanoConnectionError(f"Failed to turn fan off: {err}") from err
 
     async def set_screen_brightness(self, brightness: int) -> None:
@@ -423,3 +437,42 @@ class VolcanoAPI:
     def fan_on(self) -> bool:
         """Fan status."""
         return self._fan_on
+
+    async def _update_status_from_register(self) -> None:
+        """Update heat and fan status from device status register during polling."""
+        if not self.is_connected:
+            _LOGGER.debug("Not connected, skipping polled status update from register.")
+            return
+
+        try:
+            status_data = await self._client.read_gatt_char(CHAR_STATUS_REGISTER)
+            if status_data and len(status_data) >= 2: # Expecting at least 2 bytes
+                # Decode the 16-bit little-endian status register
+                decoded_status = status_data[0] | (status_data[1] << 8)
+                _LOGGER.debug(
+                    "Read status register (polling). Raw data: %s, Decoded: %s. API state before: Heat=%s, Fan=%s",
+                    status_data.hex(), hex(decoded_status), self._heat_on, self._fan_on
+                )
+
+                new_heat_on = bool(decoded_status & STATUS_HEAT_ON_MASK)
+                new_fan_on = bool(decoded_status & STATUS_FAN_ON_MASK)
+
+                heat_changed = new_heat_on != self._heat_on
+                fan_changed = new_fan_on != self._fan_on
+
+                if heat_changed:
+                    _LOGGER.debug("Polling: Heat state changed from %s to %s.", self._heat_on, new_heat_on)
+                    self._heat_on = new_heat_on
+                
+                if fan_changed:
+                    _LOGGER.debug("Polling: Fan state changed from %s to %s.", self._fan_on, new_fan_on)
+                    self._fan_on = new_fan_on
+                
+                if heat_changed or fan_changed:
+                    _LOGGER.debug("Polled status update resulted in API state change. New API state: Heat=%s, Fan=%s", self._heat_on, self._fan_on)
+                else:
+                    _LOGGER.debug("Polled status update did not change API state. API state: Heat=%s, Fan=%s", self._heat_on, self._fan_on)
+            else:
+                _LOGGER.warning("Failed to read valid status register data or data is too short during polling. Length: %s, Data: %s", len(status_data) if status_data else "None", status_data.hex() if status_data else "None")
+        except Exception as err:
+            _LOGGER.error("Error reading or parsing status register during polling: %s", err)
