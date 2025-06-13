@@ -1,25 +1,28 @@
 # Volcano Hybrid Home Assistant Integration
 
-A complete Home Assistant integration for the Storz & Bickel Volcano Hybrid vaporizer, providing full device control, usage statistics, and automation capabilities.
+A complete Home Assistant integration for the Storz & Bickel Volcano Hybrid vaporizer, providing full device control, rich usage statistics, and comprehensive automation building blocks.
 
 ## Features
 
 ### Device Control
 - **Climate Entity**: Temperature control and heating on/off
 - **Fan Entity**: Fan control with timer functionality  
-- **Preset Buttons**: Quick access to temperature presets (185°C, 190°C, 195°C, 200°C)
+- **Status Monitoring**: Real-time heat and fan status sensors
 - **Screen Brightness**: Adjustable display brightness
-- **Next Session**: Cycle through temperature presets
+- **Dynamic Performance**: Smart update rates based on device activity
 
 ### Statistics & Monitoring
-- **Usage Statistics**: Sessions per day, average duration, favorite temperature
-- **Real-time Status**: Connection status, current settings
+- **Session Tracking**: Daily sessions, total sessions, session durations
+- **Usage Analytics**: Time since last use, average session duration
+- **Real-time Status**: Connection status, heat/fan status, current settings
+- **Operation Time**: Combined runtime display in human-readable "Xd Yh Zm" format
 - **Historical Data**: Long-term usage patterns via HA statistics
 
 ### Automation Features
-- **Custom Services**: Start sessions, temperature sequences, fan timers
-- **Device Triggers**: Automation triggers for session events
-- **Advanced Controls**: Fan timers, screen animations
+- **Rich Event System**: Comprehensive session events for advanced automation
+- **Building Blocks Philosophy**: Provides data and controls for user-built automations
+- **Smart Session Detection**: Automatic session tracking based on usage patterns
+- **Performance Optimized**: Dynamic update intervals (1s active, 5s idle)
 
 ## Installation
 
@@ -49,7 +52,7 @@ A complete Home Assistant integration for the Storz & Bickel Volcano Hybrid vapo
 
 ### Automatic Discovery
 
-If your Volcano is powered on and discoverable, the integration will automatically detect it via Bluetooth. Simply confirm the device when prompted.
+If your Volcano is powered on and discoverable, the integration will automatically detect it via Bluetooth. The integration now elegantly handles already-configured devices without errors.
 
 ### Manual Setup
 
@@ -65,59 +68,37 @@ If your Volcano is powered on and discoverable, the integration will automatical
 
 - **Climate Entity**: Set temperature and turn heating on/off
 - **Fan Entity**: Control fan manually or with timers
-- **Preset Buttons**: Quick temperature selection
+- **Status Monitoring**: Real-time heat and fan status
+- **Dynamic Updates**: Near real-time response during active use
 
 ### Advanced Features
 
-#### Custom Services
+Build your own automations using the rich building blocks provided:
 
-**Start Session**:
-```yaml
-service: volcano_hybrid.start_session
-data:
-  entity_id: climate.volcano_hybrid
-  temperature: 190
-  duration: 15  # Optional auto-off timer
-```
-
-**Temperature Sequence** (Flavor Chasing):
-```yaml
-service: volcano_hybrid.temperature_sequence
-data:
-  entity_id: climate.volcano_hybrid
-  temperatures: [185, 190, 195, 200]
-  interval: 5  # Minutes between changes
-```
-
-**Fan Timer**:
-```yaml
-service: volcano_hybrid.fan_timer
-data:
-  entity_id: fan.volcano_hybrid_fan
-  duration: 36  # Seconds
-```
-
-### Automation Examples
-
-**Auto-heat before arriving home**:
+**Simple Session Automation:**
 ```yaml
 automation:
-  - alias: "Preheat Volcano"
-    trigger:
-      - platform: zone
-        entity_id: person.you
-        zone: zone.home
+  - trigger: event
+    event_type: volcano_session_event
+    event_data:
+      type: temperature_reached
     action:
-      - service: volcano_hybrid.start_session
-        data:
-          entity_id: climate.volcano_hybrid
-          temperature: 190
+      - delay: 30  # Wait 30 seconds at temperature
+      - service: fan.turn_on
+        target:
+          entity_id: fan.volcano_hybrid_fan
 ```
 
-**Voice Control** (via Google/Alexa):
-- "Set the volcano to 185 degrees"
-- "Turn on the volcano fan for 30 seconds"
-- "Start the volcano quick session"
+**Usage Statistics Dashboard:**
+```yaml
+type: entities
+entities:
+  - sensor.volcano_sessions_today
+  - sensor.volcano_time_since_last_use
+  - sensor.volcano_average_session_duration
+  - sensor.volcano_total_operation_time
+title: "Volcano Usage Stats"
+```
 
 ## Entities Created
 
@@ -128,174 +109,233 @@ automation:
 - `fan.volcano_hybrid_fan` - Fan control with timer support
 
 ### Sensors
-- `sensor.volcano_target_temperature` - Current target temp
-- `sensor.volcano_current_temperature` - Current actual temp
-- `sensor.volcano_connection_status` - BLE connection status
+
+#### Core Status
+- `sensor.volcano_current_temperature` - Current device temperature
+- `sensor.volcano_target_temperature` - Target/set temperature
+- `sensor.volcano_connection_status` - Bluetooth connection status
+- `sensor.volcano_heat_status` - **NEW**: Heat on/off status with dynamic icons
+- `sensor.volcano_fan_status` - **NEW**: Fan on/off status with dynamic icons
+
+#### Device Information
 - `sensor.volcano_ble_firmware_version` - BLE firmware version
 - `sensor.volcano_firmware_version` - Device firmware version
 - `sensor.volcano_serial_number` - Device serial number
-- `sensor.volcano_hours_of_operation` - Total operation hours
-- `sensor.volcano_minutes_of_operation` - Total operation minutes
+- `sensor.volcano_total_operation_time` - **ENHANCED**: Total device runtime in "Xd Yh Zm" format
 
-### Buttons
-- `button.volcano_flavor_185c` - 185°C preset
-- `button.volcano_balanced_190c` - 190°C preset  
-- `button.volcano_potent_195c` - 195°C preset
-- `button.volcano_maximum_200c` - 200°C preset
-- `button.volcano_next_session` - Cycle presets
-- `button.volcano_quick_session` - Start at 190°C
+#### Session Statistics
+- `sensor.volcano_sessions_today` - **RESTORED**: Number of sessions today
+- `sensor.volcano_total_sessions` - **NEW**: Total lifetime sessions
+- `sensor.volcano_last_session_duration` - **NEW**: Duration of last session (minutes)
+- `sensor.volcano_average_session_duration` - **NEW**: Average session duration (minutes)
+- `sensor.volcano_time_since_last_use` - **RESTORED**: Time since last session (human-readable)
 
 ### Numbers
-- `number.volcano_fan_timer` - Fan timer duration
-- `number.volcano_screen_brightness` - Display brightness
+- `number.volcano_fan_timer` - Fan timer duration (5-300 seconds)
+- `number.volcano_screen_brightness` - Display brightness (0-100%)
+
+## 🎪 Event System
+
+The integration fires detailed events for automation building blocks:
+
+### Event Types
+
+#### Session Events
+```yaml
+# Session started
+event_type: volcano_session_event
+event_data:
+  type: session_started
+  target_temperature: 195
+  current_temperature: 65
+  timestamp: "2025-06-13T14:30:00"
+  session_count_today: 3
+  total_sessions: 847
+
+# Temperature reached target
+event_type: volcano_session_event  
+event_data:
+  type: temperature_reached
+  target_temperature: 195
+  actual_temperature: 192
+  timestamp: "2025-06-13T14:32:15"
+  session_active: true
+
+# Session ended
+event_type: volcano_session_event
+event_data:
+  type: session_ended
+  duration_minutes: 12.3
+  start_time: "2025-06-13T14:30:00"  
+  end_time: "2025-06-13T14:42:18"
+  timestamp: "2025-06-13T14:42:18"
+```
+
+#### Fan Events
+```yaml
+# Fan started
+event_type: volcano_session_event
+event_data:
+  type: fan_started
+  timestamp: "2025-06-13T14:32:30"
+  session_active: true
+
+# Fan stopped  
+event_type: volcano_session_event
+event_data:
+  type: fan_stopped
+  timestamp: "2025-06-13T14:33:00"
+  session_active: true
+```
+
+### Using Events in Automations
+
+#### Automatic Fan Control
+```yaml
+automation:
+  - alias: "Auto Fan After Temperature"
+    trigger:
+      - platform: event
+        event_type: volcano_session_event
+        event_data:
+          type: temperature_reached
+    action:
+      - delay: "{{ states('input_number.preheat_wait') | int }}"
+      - service: fan.turn_on
+        target:
+          entity_id: fan.volcano_hybrid_fan
+```
+
+#### Session Notifications
+```yaml
+automation:
+  - alias: "Session Complete Notification"
+    trigger:
+      - platform: event
+        event_type: volcano_session_event
+        event_data:
+          type: session_ended
+    action:
+      - service: notify.mobile_app
+        data:
+          message: "Session completed: {{ trigger.event.data.duration_minutes }} minutes"
+```
+
+#### Usage Statistics
+```yaml
+automation:
+  - alias: "Daily Usage Summary"
+    trigger:
+      - platform: time
+        at: "23:00:00"
+    action:
+      - service: notify.persistent_notification
+        data:
+          title: "Daily Volcano Usage"
+          message: "Today: {{ states('sensor.volcano_sessions_today') }} sessions, {{ states('sensor.volcano_time_since_last_use') }} since last use"
+```
+
+## 🛠️ Building Your Own Automations
+
+This integration provides **building blocks** rather than pre-made workflows. Here are examples of what you can build:
+
+### Simple Session Flow
+```yaml
+script:
+  my_volcano_session:
+    sequence:
+      # Set your preferred temperature
+      - service: climate.set_temperature
+        target:
+          entity_id: climate.volcano_hybrid
+        data:
+          temperature: 190
+      
+      # Turn on heating
+      - service: climate.turn_on
+        target:
+          entity_id: climate.volcano_hybrid
+      
+      # Wait for temperature to be reached (using event)
+      - wait_for_trigger:
+          - platform: event
+            event_type: volcano_session_event
+            event_data:
+              type: temperature_reached
+      
+      # Optional: Wait additional time at temperature  
+      - delay: 30
+      
+      # Start fan for configured duration
+      - service: fan.turn_on
+        target:
+          entity_id: fan.volcano_hybrid_fan
+      
+      # Fan will auto-stop based on timer setting
+```
+
+### Advanced Usage Tracking
+```yaml
+automation:
+  - alias: "Track Heavy Usage"
+    trigger:
+      - platform: numeric_state
+        entity_id: sensor.volcano_sessions_today
+        above: 5
+    action:
+      - service: notify.mobile_app
+        data:
+          message: "Heavy usage day: {{ states('sensor.volcano_sessions_today') }} sessions"
+  
+  - alias: "Maintenance Reminder"
+    trigger:
+      - platform: template
+        value_template: "{{ state_attr('sensor.volcano_total_operation_time', 'total_hours') | int > 1000 }}"
+    action:
+      - service: notify.persistent_notification
+        data:
+          title: "Maintenance Due"
+          message: "Your Volcano has {{ state_attr('sensor.volcano_total_operation_time', 'total_hours') }} hours of operation"
+```
+
+## Performance Features
+
+### Dynamic Update Intervals
+The integration automatically adjusts update frequency based on device activity:
+
+- **1 second**: During fan operation (balloon sessions)
+- **1 second**: When approaching target temperature
+- **2 seconds**: When actively heating
+- **3 seconds**: When cooling down
+- **5 seconds**: When idle/cold
+
+This provides near real-time feedback during active use while conserving resources when idle.
 
 ## Troubleshooting
 
+### Device Not Found
+- Ensure Volcano is powered on and discoverable
+- Check Bluetooth is enabled on Home Assistant host
+- Verify MAC address format: `XX:XX:XX:XX:XX:XX`
+
+### Already Configured Error
+- The integration now elegantly handles this situation
+- If issues persist, remove the existing integration and restart HA before re-adding
+
 ### Connection Issues
-1. Ensure Volcano is powered on and in range
-2. Check Bluetooth is enabled on HA host
-3. Verify MAC address is correct
-4. Restart the integration if needed
+- Ensure device is within Bluetooth range
+- Check for Bluetooth interference
+- Restart Home Assistant if connection becomes unstable
 
-### Bluetooth Permissions (Linux)
-```bash
-sudo usermod -a -G bluetooth homeassistant
-```
+### Performance Issues
+- Dynamic update intervals automatically optimize performance
+- Check Home Assistant logs for any BLE connection errors
+- Ensure no other devices are simultaneously connecting to the Volcano
 
-### Logs
-Enable debug logging:
-```yaml
-logger:
-  default: info
-  logs:
-    custom_components.volcano_hybrid: debug
-```
+## Contributing
 
-## Development
-
-### Local Testing
-1. Copy integration to `custom_components/`
-2. Enable developer mode in HA
-3. Use "Check Configuration" to validate
-4. Test with actual Volcano device
-
-### Contributing
-1. Fork the repository
-2. Create feature branch
-3. Add tests for new functionality
-4. Submit pull request
-
-## Compatibility
-
-- **Home Assistant**: 2024.1.0+
-- **Python**: 3.11+
-- **Bluetooth**: Requires BLE support
-- **Device**: Storz & Bickel Volcano Hybrid
-
-## Migration from Original Project Onyx Server from ImACoder
-
-If you're currently using the original `volcanoBleServer.py`:
-
-1. Stop the existing server
-2. Install this integration
-3. Use the same MAC address during setup
-4. Replace batch scripts with HA automations
-
-All functionality from the original TCP server is preserved and enhanced.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines.
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## Acknowledgments
-
-- Based on the original Volcano BLE server implementation
-- Storz & Bickel for the Volcano Hybrid device
-- Home Assistant community for integration patterns
-
-## Custom Lovelace Card
-
-This integration includes a beautiful custom Lovelace card with an interactive SVG volcano background and intuitive controls.
-
-### Card Installation
-
-#### Automatic Installation (Recommended)
-1. Copy the entire `www/` folder from this repository to your Home Assistant configuration directory:
-   ```
-   config/
-   └── www/
-       ├── volcano-card.js
-       ├── volcano-card-editor.js
-       └── trace.svg
-   ```
-
-2. Add the resource in Home Assistant:
-   - **Via UI**: Go to **Settings** → **Dashboards** → **Resources** → **Add Resource**
-     - URL: `/local/volcano-card.js`
-     - Resource type: **JavaScript module**
-   
-   - **Via YAML**: Add to your `configuration.yaml`:
-     ```yaml
-     lovelace:
-       resources:
-         - url: /local/volcano-card.js
-           type: module
-     ```
-
-3. Restart Home Assistant and refresh your browser cache (Ctrl+F5)
-
-#### Manual Installation
-1. Download the files from the `www/` folder:
-   - `volcano-card.js` (main card)
-   - `volcano-card-editor.js` (configuration UI)
-   - `trace.svg` (volcano background)
-
-2. Place them in your `config/www/` directory
-
-3. Follow step 2-3 from automatic installation above
-
-### Using the Card
-
-Add the card to your dashboard:
-
-```yaml
-type: custom:volcano-card
-entity: climate.volcano_hybrid
-fan_entity: fan.volcano_hybrid_fan
-title: "Volcano Hybrid"
-show_title: true
-compact: false
-```
-
-**Card Configuration Options:**
-- `entity` (required): Your volcano climate entity
-- `fan_entity` (required): Your volcano fan entity  
-- `title`: Card title (default: "Volcano Hybrid")
-- `show_title`: Show/hide title (default: true)
-- `compact`: Compact mode for smaller spaces (default: false)
-
-**Card Features:**
-- Interactive SVG volcano background
-- Real-time temperature display (current/target)
-- Heat and fan toggle buttons with status indicators
-- Temperature preset buttons (185°C, 190°C, 195°C, 200°C, Next)
-- Responsive design that works on all screen sizes
-- Visual feedback for all interactions
-
-### Card Troubleshooting
-
-**"Custom element doesn't exist" error:**
-1. Verify files are in `config/www/` directory
-2. Check resource is registered correctly in Settings → Dashboards → Resources
-3. Clear browser cache (Ctrl+F5) and restart Home Assistant
-4. Check browser console (F12) for JavaScript errors
-
-**Card not updating:**
-1. Ensure entity names match your actual volcano entities
-2. Check entities are available in Developer Tools → States
-3. Verify entities are not "unavailable" or "unknown"
-
-**Layout issues:**
-1. Try toggling compact mode: `compact: true`
-2. Card is designed to be responsive - avoid fixed width containers
-3. Test on different screen sizes for optimal experience
+MIT License - see [LICENSE](LICENSE) file for details.

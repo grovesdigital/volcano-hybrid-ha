@@ -24,7 +24,6 @@ async def async_get_config_entry_diagnostics(
             "update_interval": coordinator.update_interval.total_seconds(),
         },
         "current_state": coordinator.data,
-        "statistics": await coordinator.statistics.get_diagnostics(),
         "config_entry": {
             "title": config_entry.title,
             "data": dict(config_entry.data),

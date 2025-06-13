@@ -1,6 +1,7 @@
 """Config flow for Volcano Hybrid integration."""
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any
 
@@ -51,19 +52,36 @@ class VolcanoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if not self._is_volcano_device(discovery_info):
             return self.async_abort(reason="not_supported")
 
-        await self.async_set_unique_id(discovery_info.address)
-        self._abort_if_unique_id_configured()
+        # Normalize MAC address format
+        formatted_mac = discovery_info.address.upper().replace(":", "").replace("-", "")
+        formatted_mac = ":".join([formatted_mac[i:i+2] for i in range(0, 12, 2)])
+
+        await self.async_set_unique_id(formatted_mac)
+        
+        # Check if there's an active config entry (not just entities in registry)
+        existing_entries = [
+            entry for entry in self._async_current_entries()
+            if entry.data.get(CONF_MAC_ADDRESS) == formatted_mac
+        ]
+        
+        if existing_entries:
+            _LOGGER.debug("Device %s already has active config entry, ignoring discovery", formatted_mac)
+            return self.async_abort(reason="already_configured")
+        
+        # If we reach here, entities might exist but no active config entry
+        # This is fine - we can adopt the existing entities
+        _LOGGER.debug("Device %s will be configured (may adopt existing entities)", formatted_mac)
         
         self._discovered_device = discovery_info
-        self._mac_address = discovery_info.address
-          # Create entry without testing connection (will be tested during setup)
+        self._mac_address = formatted_mac
+        # Create entry without testing connection (will be tested during setup)
         return self.async_create_entry(
-            title=f"Volcano Hybrid ({discovery_info.address})",
-            data={CONF_MAC_ADDRESS: discovery_info.address}
+            title=f"Volcano Hybrid ({formatted_mac})",
+            data={CONF_MAC_ADDRESS: formatted_mac}
         )
 
     async def async_step_user(
-        self, user_input: dict[str, Any] | None = None, config_entry = None
+        self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
         """Handle the initial step with discovery option."""
         if user_input is not None:
@@ -83,58 +101,65 @@ class VolcanoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_discovery(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
-        """Handle device discovery step."""
+        """Handle scanning for Volcano devices."""
+        errors: dict[str, str] = {}
+        
         if user_input is not None:
-            selected_device = user_input["device"]
-            mac_address = selected_device.split(" - ")[1].strip("()")
-            
-            try:
-                await self.async_set_unique_id(mac_address)
-                self._abort_if_unique_id_configured()
+            if "device" in user_input:
+                # User selected a device from the scan results
+                selected_display = user_input["device"]
+                selected_device = None
+                for device in self._discovered_devices:
+                    if device["display"] == selected_display:
+                        selected_device = device
+                        break
                 
-                if await self._test_connection(mac_address):
-                    return self.async_create_entry(
-                        title=f"Volcano Hybrid ({mac_address})",
-                        data={CONF_MAC_ADDRESS: mac_address}
-                    )
-                else:
-                    return self.async_show_form(
-                        step_id="discovery",
-                        data_schema=self._get_discovery_schema(),
-                        errors={"base": "cannot_connect"}
-                    )
-            except Exception as err:
-                _LOGGER.exception("Error setting up discovered device: %s", err)
-                return self.async_show_form(
-                    step_id="discovery",
-                    data_schema=self._get_discovery_schema(),
-                    errors={"base": "unknown"}
-                )
-
+                if selected_device:
+                    mac_address = selected_device["address"]
+                    formatted_mac = mac_address.upper().replace(":", "").replace("-", "")
+                    formatted_mac = ":".join([formatted_mac[i:i+2] for i in range(0, 12, 2)])
+                    
+                    try:
+                        await self.async_set_unique_id(formatted_mac)
+                        
+                        # Check for existing active config entries, not just entity registry
+                        existing_entries = [
+                            entry for entry in self._async_current_entries()
+                            if entry.data.get(CONF_MAC_ADDRESS) == formatted_mac
+                        ]
+                        
+                        if existing_entries:
+                            errors["base"] = "already_configured"
+                        elif await self._test_connection(formatted_mac):
+                            return self.async_create_entry(
+                                title=f"Volcano Hybrid ({formatted_mac})",
+                                data={CONF_MAC_ADDRESS: formatted_mac}
+                            )
+                        else:
+                            errors["base"] = "cannot_connect"
+                    except Exception as err:
+                        _LOGGER.exception("Error during device setup: %s", err)
+                        errors["base"] = "unknown"
+            else:
+                errors["base"] = "no_device_selected"
+        
         # Scan for devices
-        try:
-            discovered_devices = await self._scan_for_volcano_devices()
-            if not discovered_devices:
-                return self.async_show_form(
-                    step_id="discovery",
-                    data_schema=vol.Schema({}),
-                    errors={"base": "no_devices_found"},
-                    description_placeholders={
-                        "description": "No Volcano devices found. Make sure your device is turned on and nearby."
-                    }
-                )
-            
-            self._discovered_devices = discovered_devices
+        self._discovered_devices = await self._scan_for_volcano_devices()
+        
+        if not self._discovered_devices:
+            errors["base"] = "no_devices_found"
+            # Return to user step to try manual entry
             return self.async_show_form(
-                step_id="discovery",
-                data_schema=self._get_discovery_schema(),
-                description_placeholders={
-                    "description": f"Found {len(discovered_devices)} Volcano device(s). Select one to configure:"
-                }
+                step_id="user",
+                data_schema=STEP_DISCOVERY_DATA_SCHEMA,
+                errors={"base": "no_devices_found"}
             )
-        except Exception as err:
-            _LOGGER.exception("Error during device discovery: %s", err)
-            return await self.async_step_manual()
+        
+        return self.async_show_form(
+            step_id="discovery",
+            data_schema=self._get_discovery_schema(),
+            errors=errors
+        )
 
     async def async_step_manual(
         self, user_input: dict[str, Any] | None = None
@@ -149,15 +174,24 @@ class VolcanoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             
             try:
                 await self.async_set_unique_id(formatted_mac)
-                self._abort_if_unique_id_configured()
                 
-                if await self._test_connection(formatted_mac):
+                # Check for existing active config entries, not just entity registry
+                existing_entries = [
+                    entry for entry in self._async_current_entries()
+                    if entry.data.get(CONF_MAC_ADDRESS) == formatted_mac
+                ]
+                
+                if existing_entries:
+                    errors["base"] = "already_configured"
+                elif await self._test_connection(formatted_mac):
                     return self.async_create_entry(
                         title=f"Volcano Hybrid ({formatted_mac})",
                         data={CONF_MAC_ADDRESS: formatted_mac}
                     )
                 else:
                     errors["base"] = "cannot_connect"
+            except HomeAssistantError:
+                errors["base"] = "already_configured"
             except ValueError:
                 errors[CONF_MAC_ADDRESS] = "invalid_mac"
             except Exception as err:
@@ -170,8 +204,7 @@ class VolcanoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             errors=errors
         )
 
-    @staticmethod
-    def _is_volcano_device(discovery_info: BluetoothServiceInfoBleak) -> bool:
+    def _is_volcano_device(self, discovery_info: BluetoothServiceInfoBleak) -> bool:
         """Check if the discovered device is a Volcano."""
         name = discovery_info.name or ""
         return (
@@ -184,10 +217,13 @@ class VolcanoConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Test connection to the device."""
         try:
             api = VolcanoAPI(self.hass, mac_address)
-            connected = await api.connect()
+            # Add timeout for connection test
+            connected = await asyncio.wait_for(api.connect(), timeout=15.0)
             if connected:
                 await api.disconnect()
                 return True
+        except asyncio.TimeoutError:
+            _LOGGER.debug("Connection test timed out for %s", mac_address)
         except Exception as err:
             _LOGGER.debug("Connection test failed: %s", err)
         return False
